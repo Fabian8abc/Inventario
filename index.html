@@ -87,8 +87,41 @@
 
       const analyzeImageWithAI = async (base64Image) => {
         if (!apiKey) throw new Error("API_KEY_MISSING");
-        
         const base64Data = base64Image.split(',')[1];
+        
+        // 1. Preguntarle a Google qué modelos SÍ tienes disponibles en tu cuenta
+        const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`;
+        const listRes = await fetch(listUrl);
+        if (!listRes.ok) throw new Error("No se pudo verificar tu API Key con Google.");
+        
+        const listData = await listRes.json();
+        const modelosDisponibles = listData.models || [];
+        
+        // 2. Buscar automáticamente el mejor modelo visual que tengas permitido
+        const modelosIdeales = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-pro"];
+        let modeloElegido = "";
+        
+        for (const nombreIdeal of modelosIdeales) {
+            if (modelosDisponibles.some(m => m.name === `models/${nombreIdeal}`)) {
+                modeloElegido = nombreIdeal;
+                break;
+            }
+        }
+        
+        // Si no tienes los ideales, busca cualquier modelo alternativo que tengas
+        if (!modeloElegido) {
+            const fallback = modelosDisponibles.find(m => m.name.includes("flash") || m.name.includes("vision"));
+            if (fallback) {
+                modeloElegido = fallback.name.replace("models/", "");
+            } else {
+                // Si llegamos aquí, te mostrará en pantalla exactamente qué modelos tienes para saber qué pasa
+                const nombres = modelosDisponibles.map(m => m.name.replace("models/", "")).join(", ");
+                throw new Error(`Tu clave no tiene modelos visuales. Solo tienes: ${nombres}`);
+            }
+        }
+
+        // 3. Ahora sí, hacemos la petición a un modelo que SABEMOS que existe
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modeloElegido}:generateContent?key=${apiKey.trim()}`;
         
         const payload = {
           contents: [{ role: "user", parts: [
@@ -97,53 +130,29 @@
           ]}]
         };
 
-        // Solo usamos los modelos modernos. Quitamos el pro-vision que ya no existe.
-        const endpoints = [
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`,
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey.trim()}`
-        ];
+        const response = await fetch(url, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+        });
 
-        let errors = [];
-
-        for (const url of endpoints) {
-          try {
-            const response = await fetch(url, {
-              method: "POST", 
-              headers: { "Content-Type": "application/json" }, 
-              body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const apiErrorMsg = errorData?.error?.message || `Error en servidor: ${response.status}`;
-                if (response.status === 400 && apiErrorMsg.toLowerCase().includes('key')) throw new Error("API_KEY_INVALID");
-                
-                errors.push(apiErrorMsg);
-                continue; 
-            }
-            
-            const result = await response.json();
-            let textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
-            
-            if (textResponse) {
-              textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-              const parsedData = JSON.parse(textResponse);
-              
-              return parsedData.map(item => ({
-                id: item.id || Math.random().toString(36).substr(2, 9),
-                producto: item.producto || 'Desconocido',
-                cantidad: item.cantidad || 0
-              }));
-            }
-            return [];
-          } catch (err) {
-            if (err.message === "API_KEY_INVALID") throw err; 
-            errors.push(err.message); 
-          }
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const apiErrorMsg = errorData?.error?.message || `Error en servidor: ${response.status}`;
+            throw new Error(`Google rechazó la imagen usando ${modeloElegido}: ${apiErrorMsg}`);
         }
         
-        // ¡Importante! Aquí mostraremos el PRIMER error (el real)
-        throw new Error(`Motivo real: ${errors[0]}`);
+        const result = await response.json();
+        let textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if (textResponse) {
+          textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+          const parsedData = JSON.parse(textResponse);
+          return parsedData.map(item => ({
+            id: item.id || Math.random().toString(36).substr(2, 9),
+            producto: item.producto || 'Desconocido',
+            cantidad: item.cantidad || 0
+          }));
+        }
+        return [];
       };
 
       const handleCapture = async (event) => {
