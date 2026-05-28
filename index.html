@@ -1,106 +1,113 @@
-import React, { useState, useRef } from 'react';
-import { Camera, Send, Plus, Trash2, Edit2, Loader2, AlertCircle, Check, ImagePlus, X } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartInventory PWA</title>
+  
+  <!-- Enlace al Manifest para que sea instalable (PWA) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1d4ed8">
+  
+  <!-- Herramientas de React para que funcionen directo en el navegador -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Traductor de JSX a código que el navegador entiende -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Estilos de Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <!-- Aquí es donde React "inyectará" la aplicación -->
+  <div id="root"></div>
 
-const App = () => {
-  const [inventory, setInventory] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState(null);
-  const [showSendModal, setShowSendModal] = useState(false);
-  const [docNumber, setDocNumber] = useState('');
-  const [counterName, setCounterName] = useState('');
-  const fileInputRef = useRef(null);
+  <!-- Nuestro código de la aplicación -->
+  <script type="text/babel">
+    const { useState, useRef } = React;
 
-  // Redimensionar imagen para reducir el tamaño y acelerar el procesamiento
-  const resizeImage = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target.result;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 1024;
-          const MAX_HEIGHT = 1024;
-          let width = img.width;
-          let height = img.height;
+    // --- Íconos de interfaz ---
+    const Camera = ({className}) => (<svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>);
+    const Send = ({className}) => (<svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>);
+    const Plus = ({className}) => (<svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>);
+    const Trash2 = ({className}) => (<svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>);
+    const Edit2 = ({className}) => (<svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>);
+    const Loader2 = ({className}) => (<svg className={`animate-spin ${className}`} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>);
+    const AlertCircle = ({className}) => (<svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>);
+    const Check = ({className}) => (<svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>);
+    const ImagePlus = ({className}) => (<svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4"/><line x1="16" y1="5" x2="22" y2="5"/><line x1="19" y1="2" x2="19" y2="8"/><circle cx="9" cy="9" r="2"/><polyline points="21 15 16 10 5 21"/></svg>);
+    const X = ({className}) => (<svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>);
 
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
+    const App = () => {
+      const [inventory, setInventory] = useState([]);
+      const [isProcessing, setIsProcessing] = useState(false);
+      const [error, setError] = useState(null);
+      const [showSendModal, setShowSendModal] = useState(false);
+      const [docNumber, setDocNumber] = useState('');
+      const [counterName, setCounterName] = useState('');
+      const fileInputRef = useRef(null);
 
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.8));
-        };
-        img.onerror = (err) => reject(err);
+      // Redimensionar imagen para optimizar
+      const resizeImage = (file) => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const MAX_WIDTH = 1024;
+              const MAX_HEIGHT = 1024;
+              let width = img.width;
+              let height = img.height;
+
+              if (width > height) {
+                if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+              } else {
+                if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL('image/jpeg', 0.8));
+            };
+            img.onerror = (err) => reject(err);
+          };
+          reader.onerror = (err) => reject(err);
+        });
       };
-      reader.onerror = (err) => reject(err);
-    });
-  };
 
-  // Función para analizar la imagen con IA
-  const analyzeImageWithAI = async (base64Image) => {
-    // IMPORTANTE: Inserta aquí tu API Key de Google AI Studio para que funcione fuera de este entorno
-    const apiKey = ""; 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+      const analyzeImageWithAI = async (base64Image) => {
+        // IMPORTANTE: Inserta aquí tu API Key de Google AI Studio
+        const apiKey = ""; 
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
-    const base64Data = base64Image.split(',')[1];
-
-    const payload = {
-      contents: [
-        {
-          role: "user",
-          parts: [
+        const base64Data = base64Image.split(',')[1];
+        const payload = {
+          contents: [{ role: "user", parts: [
             { text: "Analiza esta foto de un marbete de inventario o lista de productos escrita a mano. Extrae los nombres de los productos y las cantidades asociadas. Ignora texto irrelevante. Si hay un código, inclúyelo en el nombre del producto." },
             { inlineData: { mimeType: "image/jpeg", data: base64Data } }
-          ]
-        }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "ARRAY",
-          description: "Lista de productos extraídos del inventario",
-          items: {
-            type: "OBJECT",
-            properties: {
-              id: { type: "STRING", description: "Genera un id unico aleatorio corto" },
-              producto: { type: "STRING", description: "El nombre o código del producto" },
-              cantidad: { type: "NUMBER", description: "La cantidad contada en formato numérico" }
-            },
-            required: ["id", "producto", "cantidad"]
+          ]}],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "ARRAY", items: {
+                type: "OBJECT", properties: {
+                  id: { type: "STRING" }, producto: { type: "STRING" }, cantidad: { type: "NUMBER" }
+                }, required: ["id", "producto", "cantidad"]
+              }
+            }
           }
-        }
-      }
-    };
+        };
 
-    const maxRetries = 5;
-    const delays = [1000, 2000, 4000, 8000, 16000];
-    let lastError;
-
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
         const response = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
         });
 
-        if (!response.ok) {
-          throw new Error(`Error en el servidor: ${response.status}`);
-        }
-
+        if (!response.ok) throw new Error(`Error en servidor: ${response.status}`);
+        
         const result = await response.json();
         const textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
         
@@ -113,307 +120,174 @@ const App = () => {
           }));
         }
         return [];
-      } catch (err) {
-        lastError = err;
-        if (attempt < maxRetries - 1) {
-          await new Promise(res => setTimeout(res, delays[attempt]));
+      };
+
+      const handleCapture = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        setIsProcessing(true);
+        setError(null);
+
+        try {
+          const base64Image = await resizeImage(file);
+          const extractedItems = await analyzeImageWithAI(base64Image);
+          
+          if (extractedItems.length === 0) setError("No se detectó ningún producto. Intenta de nuevo.");
+          else setInventory(prev => [...prev, ...extractedItems]);
+        } catch (err) {
+          setError("Hubo un problema al analizar la imagen. Por favor, intenta de nuevo.");
+        } finally {
+          setIsProcessing(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
         }
-      }
-    }
-    throw lastError;
-  };
+      };
 
-  const handleCapture = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+      const handleUpdateItem = (id, field, value) => {
+        setInventory(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
+      };
 
-    setIsProcessing(true);
-    setError(null);
+      const handleDeleteItem = (id) => {
+        setInventory(prev => prev.filter(item => item.id !== id));
+      };
 
-    try {
-      const base64Image = await resizeImage(file);
-      const extractedItems = await analyzeImageWithAI(base64Image);
-      
-      if (extractedItems.length === 0) {
-        setError("No se detectó ningún producto en la imagen. Intenta de nuevo.");
-      } else {
-        setInventory(prev => [...prev, ...extractedItems]);
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Hubo un problema al analizar la imagen. Por favor, intenta de nuevo.");
-    } finally {
-      setIsProcessing(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
+      const handleAddItem = () => {
+        setInventory([...inventory, { id: Math.random().toString(36).substr(2, 9), producto: '', cantidad: 0 }]);
+      };
 
-  const handleUpdateItem = (id, field, value) => {
-    setInventory(prev => 
-      prev.map(item => 
-        item.id === id ? { ...item, [field]: value } : item
-      )
-    );
-  };
-
-  const handleDeleteItem = (id) => {
-    setInventory(prev => prev.filter(item => item.id !== id));
-  };
-
-  const handleAddItem = () => {
-    const newItem = {
-      id: Math.random().toString(36).substr(2, 9),
-      producto: '',
-      cantidad: 0
-    };
-    setInventory([...inventory, newItem]);
-  };
-
-  const handleOpenSendModal = () => {
-    if (inventory.length === 0) return;
-    setShowSendModal(true);
-  };
-
-  const handleConfirmSend = () => {
-    const fecha = new Date().toLocaleDateString('es-MX', { 
-      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
-    });
-
-    let text = `📦 *REPORTE DE INVENTARIO*\n📅 ${fecha}\n`;
-    if (docNumber) text += `📄 *Documento:* ${docNumber}\n`;
-    if (counterName) text += `👤 *Contador:* ${counterName}\n`;
-    text += `\n`;
-    
-    inventory.forEach(item => {
-      const prodName = item.producto.trim() || 'Sin nombre';
-      text += `▪️ ${prodName}: *${item.cantidad}*\n`;
-    });
-
-    const totalItems = inventory.reduce((sum, item) => sum + (Number(item.cantidad) || 0), 0);
-    text += `\n📊 *Total de artículos:* ${totalItems}`;
-
-    const encodedText = encodeURIComponent(text);
-    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
-    setShowSendModal(false);
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-20 sm:pb-8">
-      {/* Input de archivo oculto para acceso nativo a la cámara */}
-      <input
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleCapture}
-        ref={fileInputRef}
-        className="hidden"
-      />
-
-      {/* Encabezado */}
-      <header className="bg-blue-700 text-white p-4 shadow-md sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-xl font-bold flex items-center gap-2">
-              <Check className="w-6 h-6" />
-              SmartInventory
-            </h1>
-            <p className="text-blue-100 text-xs mt-1">Escaneo de marbetes</p>
-          </div>
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isProcessing}
-            className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors disabled:opacity-50"
-            aria-label="Escanear"
-          >
-            <Camera className="w-6 h-6" />
-          </button>
-        </div>
-      </header>
-
-      <main className="max-w-3xl mx-auto p-4 mt-4">
+      const handleConfirmSend = () => {
+        const fecha = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        let text = `📦 *REPORTE DE INVENTARIO*\n📅 ${fecha}\n`;
+        if (docNumber) text += `📄 *Documento:* ${docNumber}\n`;
+        if (counterName) text += `👤 *Contador:* ${counterName}\n`;
+        text += `\n`;
         
-        {/* Mensaje de Error */}
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-md shadow-sm flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
+        inventory.forEach(item => {
+          text += `▪️ ${item.producto.trim() || 'Sin nombre'}: *${item.cantidad}*\n`;
+        });
 
-        {/* Estado Vacío */}
-        {inventory.length === 0 && !isProcessing && !error && (
-          <div className="text-center py-16 px-4 bg-white rounded-2xl shadow-sm border border-slate-100 mt-8">
-            <div className="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ImagePlus className="w-10 h-10 text-blue-600" />
-            </div>
-            <h2 className="text-lg font-semibold text-slate-800 mb-2">No hay datos de inventario</h2>
-            <p className="text-slate-500 text-sm mb-8 max-w-xs mx-auto">
-              Toma una foto de tu marbete escrito a mano para extraer automáticamente los productos y cantidades.
-            </p>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="bg-blue-600 text-white font-medium py-3 px-8 rounded-full shadow-lg shadow-blue-200 flex items-center gap-2 mx-auto active:scale-95 transition-transform"
-            >
-              <Camera className="w-5 h-5" />
-              Escanear Marbete
-            </button>
-          </div>
-        )}
+        const totalItems = inventory.reduce((sum, item) => sum + (Number(item.cantidad) || 0), 0);
+        text += `\n📊 *Total de artículos:* ${totalItems}`;
 
-        {/* Estado de Procesamiento */}
-        {isProcessing && (
-          <div className="text-center py-16 px-4 bg-white rounded-2xl shadow-sm border border-slate-100 mt-8 flex flex-col items-center">
-            <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-            <h2 className="text-lg font-medium text-slate-800">Analizando escritura...</h2>
-            <p className="text-slate-500 text-sm mt-2">La inteligencia artificial está leyendo las cantidades.</p>
-          </div>
-        )}
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        setShowSendModal(false);
+      };
 
-        {/* Tabla de Datos */}
-        {inventory.length > 0 && !isProcessing && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
-            <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-              <h2 className="font-semibold text-slate-800">Resultados del Conteo</h2>
-              <span className="text-xs font-medium bg-blue-100 text-blue-800 py-1 px-2 rounded-full">
-                {inventory.length} items
-              </span>
-            </div>
-            
-            <div className="divide-y divide-slate-100">
-              <div className="hidden sm:grid grid-cols-12 gap-4 p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-white">
-                <div className="col-span-8">Producto / Código</div>
-                <div className="col-span-3 text-right">Cantidad</div>
-                <div className="col-span-1"></div>
+      return (
+        <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-20 sm:pb-8">
+          <input type="file" accept="image/*" capture="environment" onChange={handleCapture} ref={fileInputRef} className="hidden" />
+
+          <header className="bg-blue-700 text-white p-4 shadow-md sticky top-0 z-10">
+            <div className="max-w-3xl mx-auto flex justify-between items-center">
+              <div>
+                <h1 className="text-xl font-bold flex items-center gap-2"><Check className="w-6 h-6" /> SmartInventory</h1>
+                <p className="text-blue-100 text-xs mt-1">Escaneo de marbetes</p>
               </div>
+              <button onClick={() => fileInputRef.current?.click()} disabled={isProcessing} className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors disabled:opacity-50">
+                <Camera className="w-6 h-6" />
+              </button>
+            </div>
+          </header>
 
-              {inventory.map((item) => (
-                <div key={item.id} className="p-4 flex flex-col sm:grid sm:grid-cols-12 sm:items-center gap-3 hover:bg-slate-50 transition-colors">
-                  
-                  <div className="sm:col-span-8 relative">
-                    <label className="text-xs text-slate-400 sm:hidden mb-1 block">Producto</label>
-                    <div className="relative flex items-center">
-                      <Edit2 className="w-4 h-4 text-slate-300 absolute left-3 pointer-events-none" />
-                      <input
-                        type="text"
-                        value={item.producto}
-                        onChange={(e) => handleUpdateItem(item.id, 'producto', e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                        placeholder="Nombre del producto"
-                      />
+          <main className="max-w-3xl mx-auto p-4 mt-4">
+            {error && (
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
+
+            {inventory.length === 0 && !isProcessing && !error && (
+              <div className="text-center py-16 px-4 bg-white rounded-2xl shadow-sm border border-slate-100 mt-8">
+                <div className="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ImagePlus className="w-10 h-10 text-blue-600" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-800 mb-2">No hay datos de inventario</h2>
+                <p className="text-slate-500 text-sm mb-8 max-w-xs mx-auto">Toma una foto de tu marbete escrito a mano para extraer automáticamente los productos y cantidades.</p>
+                <button onClick={() => fileInputRef.current?.click()} className="bg-blue-600 text-white font-medium py-3 px-8 rounded-full shadow-lg flex items-center gap-2 mx-auto active:scale-95 transition-transform">
+                  <Camera className="w-5 h-5" /> Escanear Marbete
+                </button>
+              </div>
+            )}
+
+            {isProcessing && (
+              <div className="text-center py-16 px-4 bg-white rounded-2xl shadow-sm border border-slate-100 mt-8 flex flex-col items-center">
+                <Loader2 className="w-12 h-12 text-blue-600 mb-4" />
+                <h2 className="text-lg font-medium text-slate-800">Analizando escritura...</h2>
+              </div>
+            )}
+
+            {inventory.length > 0 && !isProcessing && (
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+                <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                  <h2 className="font-semibold text-slate-800">Resultados del Conteo</h2>
+                  <span className="text-xs font-medium bg-blue-100 text-blue-800 py-1 px-2 rounded-full">{inventory.length} items</span>
+                </div>
+                
+                <div className="divide-y divide-slate-100">
+                  {inventory.map((item) => (
+                    <div key={item.id} className="p-4 flex flex-col sm:grid sm:grid-cols-12 sm:items-center gap-3 hover:bg-slate-50">
+                      <div className="sm:col-span-8 relative">
+                        <label className="text-xs text-slate-400 sm:hidden mb-1 block">Producto</label>
+                        <div className="relative flex items-center">
+                          <Edit2 className="w-4 h-4 text-slate-300 absolute left-3" />
+                          <input type="text" value={item.producto} onChange={(e) => handleUpdateItem(item.id, 'producto', e.target.value)} className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Nombre" />
+                        </div>
+                      </div>
+                      <div className="sm:col-span-3 relative flex justify-between sm:justify-end items-center gap-4">
+                        <label className="text-xs text-slate-400 sm:hidden">Cantidad:</label>
+                        <input type="number" value={item.cantidad} onChange={(e) => handleUpdateItem(item.id, 'cantidad', parseFloat(e.target.value) || 0)} className="w-24 px-3 py-2 border rounded-lg text-sm text-right font-medium focus:ring-2 focus:ring-blue-500 outline-none" />
+                      </div>
+                      <div className="sm:col-span-1 flex justify-end">
+                        <button onClick={() => handleDeleteItem(item.id)} className="text-slate-400 hover:text-red-500 p-2"><Trash2 className="w-5 h-5" /></button>
+                      </div>
                     </div>
-                  </div>
+                  ))}
+                </div>
+                <div className="p-4 border-t border-slate-100 bg-slate-50">
+                  <button onClick={handleAddItem} className="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-slate-600 font-medium text-sm flex justify-center gap-2 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50"><Plus className="w-4 h-4" /> Agregar manual</button>
+                </div>
+              </div>
+            )}
+          </main>
 
-                  <div className="sm:col-span-3 relative flex justify-between sm:justify-end items-center gap-4">
-                    <label className="text-xs text-slate-400 sm:hidden">Cantidad:</label>
-                    <input
-                      type="number"
-                      value={item.cantidad}
-                      onChange={(e) => handleUpdateItem(item.id, 'cantidad', parseFloat(e.target.value) || 0)}
-                      className="w-24 px-3 py-2 border border-slate-200 rounded-lg text-sm text-right font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                      placeholder="0"
-                      min="0"
-                    />
-                  </div>
+          {inventory.length > 0 && !isProcessing && (
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200 flex justify-center gap-4 z-20">
+              <button onClick={() => fileInputRef.current?.click()} className="flex-1 bg-slate-100 text-slate-700 font-medium py-3 px-4 rounded-xl flex items-center justify-center gap-2"><Camera className="w-5 h-5" /><span className="hidden sm:inline">Escanear Más</span></button>
+              <button onClick={() => setShowSendModal(true)} className="flex-1 bg-green-500 text-white font-medium py-3 px-4 rounded-xl flex items-center justify-center gap-2"><Send className="w-5 h-5" /> Enviar WhatsApp</button>
+            </div>
+          )}
 
-                  <div className="sm:col-span-1 flex justify-end">
-                    <button
-                      onClick={() => handleDeleteItem(item.id)}
-                      className="text-slate-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                      aria-label="Eliminar fila"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+          {showSendModal && (
+            <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+                <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
+                  <h3 className="font-bold text-slate-800">Detalles del Envío</h3>
+                  <button onClick={() => setShowSendModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+                </div>
+                <div className="p-4 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Número de Documento</label>
+                    <input type="text" value={docNumber} onChange={(e) => setDocNumber(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej. DOC-00123" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Contador</label>
+                    <input type="text" value={counterName} onChange={(e) => setCounterName(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej. Juan Pérez" />
                   </div>
                 </div>
-              ))}
-            </div>
-
-            <div className="p-4 border-t border-slate-100 bg-slate-50">
-              <button
-                onClick={handleAddItem}
-                className="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-slate-600 font-medium text-sm flex items-center justify-center gap-2 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                Agregar fila manualmente
-              </button>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* Botón Flotante para WhatsApp */}
-      {inventory.length > 0 && !isProcessing && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex justify-center gap-4 z-20">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex-1 max-w-[200px] bg-slate-100 text-slate-700 font-medium py-3 px-4 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform"
-          >
-            <Camera className="w-5 h-5" />
-            <span className="hidden sm:inline">Escanear Más</span>
-          </button>
-          
-          <button
-            onClick={handleOpenSendModal}
-            className="flex-1 max-w-[300px] bg-green-500 text-white font-medium py-3 px-4 rounded-xl shadow-lg shadow-green-200 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-          >
-            <Send className="w-5 h-5" />
-            Enviar WhatsApp
-          </button>
-        </div>
-      )}
-
-      {/* Modal de Detalles de Envío */}
-      {showSendModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
-            <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-              <h3 className="font-bold text-slate-800">Detalles del Envío</h3>
-              <button onClick={() => setShowSendModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Número de Documento</label>
-                <input
-                  type="text"
-                  value={docNumber}
-                  onChange={(e) => setDocNumber(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Ej. DOC-00123"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Contador</label>
-                <input
-                  type="text"
-                  value={counterName}
-                  onChange={(e) => setCounterName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Ej. Juan Pérez"
-                />
+                <div className="p-4 border-t flex gap-3">
+                  <button onClick={() => setShowSendModal(false)} className="flex-1 py-2 px-4 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200">Cancelar</button>
+                  <button onClick={handleConfirmSend} className="flex-1 py-2 px-4 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 flex justify-center gap-2"><Send className="w-4 h-4" /> Enviar</button>
+                </div>
               </div>
             </div>
-            <div className="p-4 border-t border-slate-100 flex gap-3">
-              <button
-                onClick={() => setShowSendModal(false)}
-                className="flex-1 py-2 px-4 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConfirmSend}
-                className="flex-1 py-2 px-4 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                Enviar
-              </button>
-            </div>
-          </div>
+          )}
         </div>
-      )}
-    </div>
-  );
-};
+      );
+    };
 
-export default App;
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
