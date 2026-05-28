@@ -94,8 +94,6 @@
       const analyzeImageWithAI = async (base64Image) => {
         if (!apiKey) throw new Error("API_KEY_MISSING");
         
-        // Versión definitiva: v1beta y gemini-1.5-flash
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`;
         const base64Data = base64Image.split(',')[1];
         
         const payload = {
@@ -105,33 +103,55 @@
           ]}]
         };
 
-        const response = await fetch(url, {
-          method: "POST", 
-          headers: { "Content-Type": "application/json" }, 
-          body: JSON.stringify(payload)
-        });
+        // Arreglo de respaldos: Intentará las 3 versiones de Google automáticamente
+        const endpoints = [
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`,
+          `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${apiKey.trim()}`
+        ];
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            const apiErrorMsg = errorData?.error?.message || `Error en servidor: ${response.status}`;
-            if (response.status === 400 && apiErrorMsg.toLowerCase().includes('key')) throw new Error("API_KEY_INVALID");
-            throw new Error(apiErrorMsg);
+        let lastErrorMsg = "";
+
+        for (const url of endpoints) {
+          try {
+            const response = await fetch(url, {
+              method: "POST", 
+              headers: { "Content-Type": "application/json" }, 
+              body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const apiErrorMsg = errorData?.error?.message || `Error en servidor: ${response.status}`;
+                if (response.status === 400 && apiErrorMsg.toLowerCase().includes('key')) throw new Error("API_KEY_INVALID");
+                
+                // Si falla, guardamos el error y el ciclo "for" intentará con el siguiente enlace
+                lastErrorMsg = apiErrorMsg;
+                continue; 
+            }
+            
+            const result = await response.json();
+            let textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            
+            if (textResponse) {
+              textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+              const parsedData = JSON.parse(textResponse);
+              
+              return parsedData.map(item => ({
+                id: item.id || Math.random().toString(36).substr(2, 9),
+                producto: item.producto || 'Desconocido',
+                cantidad: item.cantidad || 0
+              }));
+            }
+            return [];
+          } catch (err) {
+            if (err.message === "API_KEY_INVALID") throw err; // La clave está mal
+            lastErrorMsg = err.message; // Otro error, intentará el siguiente
+          }
         }
         
-        const result = await response.json();
-        let textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
-        
-        if (textResponse) {
-          textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-          const parsedData = JSON.parse(textResponse);
-          
-          return parsedData.map(item => ({
-            id: item.id || Math.random().toString(36).substr(2, 9),
-            producto: item.producto || 'Desconocido',
-            cantidad: item.cantidad || 0
-          }));
-        }
-        return [];
+        // Si los 3 intentos fallan, recién ahí muestra el error
+        throw new Error(`Ningún modelo respondió. Último error: ${lastErrorMsg}`);
       };
 
       const handleCapture = async (event) => {
