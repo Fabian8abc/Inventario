@@ -98,7 +98,7 @@
       const analyzeImageWithAI = async (base64Image) => {
         if (!apiKey) throw new Error("API_KEY_MISSING");
         
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey.trim()}`;
         const base64Data = base64Image.split(',')[1];
         const payload = {
           contents: [{ role: "user", parts: [
