@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Agregamos una etiqueta para evitar que el navegador guarde caché viejo -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>SmartInventory PWA</title>
   
-  <!-- Enlace al Manifest para que sea instalable (PWA) -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1d4ed8">
   
-  <!-- Herramientas de React -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -48,14 +48,10 @@
       
       const fileInputRef = useRef(null);
 
-      // Cargar la API key guardada al iniciar la app
       useEffect(() => {
         const savedKey = localStorage.getItem('geminiApiKey');
-        if (savedKey) {
-          setApiKey(savedKey);
-        } else {
-          setShowSettings(true);
-        }
+        if (savedKey) setApiKey(savedKey);
+        else setShowSettings(true);
       }, []);
 
       const saveApiKey = () => {
@@ -98,12 +94,13 @@
       const analyzeImageWithAI = async (base64Image) => {
         if (!apiKey) throw new Error("API_KEY_MISSING");
         
-        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`;
+        // Versión definitiva: v1beta y gemini-1.5-flash
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`;
         const base64Data = base64Image.split(',')[1];
         
         const payload = {
           contents: [{ role: "user", parts: [
-            { text: "Analiza esta foto de un marbete de inventario. Extrae los nombres de los productos y las cantidades. RESPONDE ÚNICAMENTE CON UN ARREGLO JSON VÁLIDO. Ejemplo exacto de tu respuesta: [{\"producto\": \"Cinta\", \"cantidad\": 5}, {\"producto\": \"Caja\", \"cantidad\": 12}]. No agregues texto adicional, ni formato markdown (```json)." },
+            { text: "Analiza esta foto de un marbete de inventario. Extrae los nombres de los productos y las cantidades. RESPONDE ÚNICAMENTE CON UN ARREGLO JSON VÁLIDO. Ejemplo exacto de tu respuesta: [{\"producto\": \"Cinta\", \"cantidad\": 5}, {\"producto\": \"Caja\", \"cantidad\": 12}]. No agregues texto adicional, ni formato markdown." },
             { inlineData: { mimeType: "image/jpeg", data: base64Data } }
           ]}]
         };
@@ -125,7 +122,6 @@
         let textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
         
         if (textResponse) {
-          // Limpiamos la respuesta por si la IA le pone comillas de formato
           textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
           const parsedData = JSON.parse(textResponse);
           
@@ -206,7 +202,7 @@
             <div className="max-w-3xl mx-auto flex justify-between items-center">
               <div>
                 <h1 className="text-xl font-bold flex items-center gap-2"><Check className="w-6 h-6" /> SmartInventory</h1>
-                <p className="text-blue-100 text-xs mt-1">Escaneo de marbetes</p>
+                <p className="text-blue-100 text-xs mt-1">Escaneo de marbetes (V2)</p>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => setShowSettings(true)} className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors">
@@ -294,7 +290,6 @@
             )}
           </main>
 
-          {/* Botones de acción inferiores */}
           {inventory.length > 0 && !isProcessing && (
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200 flex justify-center gap-4 z-20">
               <button onClick={() => fileInputRef.current?.click()} className="flex-1 bg-slate-100 text-slate-700 font-medium py-3 px-4 rounded-xl flex items-center justify-center gap-2"><Camera className="w-5 h-5" /><span className="hidden sm:inline">Escanear Más</span></button>
@@ -302,7 +297,6 @@
             </div>
           )}
 
-          {/* Modal de API Key */}
           {showSettings && (
             <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
@@ -332,7 +326,6 @@
             </div>
           )}
 
-          {/* Modal de Detalles del Envío */}
           {showSendModal && (
             <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
