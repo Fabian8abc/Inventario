@@ -97,31 +97,26 @@
         const listData = await listRes.json();
         const modelosDisponibles = listData.models || [];
         
-        // 2. Buscar automáticamente el mejor modelo visual que tengas permitido
-        const modelosIdeales = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-pro"];
-        let modeloElegido = "";
+        // 2. Extraer y ordenar los modelos disponibles (evitando el 2.0 que dio error a tu cuenta)
+        const modelosCandidatos = modelosDisponibles
+            .map(m => m.name.replace("models/", ""))
+            .filter(name => name.includes("flash") || name.includes("pro"))
+            .filter(name => name !== "gemini-2.0-flash"); // Excluimos el que Google bloqueó
         
-        for (const nombreIdeal of modelosIdeales) {
-            if (modelosDisponibles.some(m => m.name === `models/${nombreIdeal}`)) {
-                modeloElegido = nombreIdeal;
-                break;
-            }
-        }
-        
-        // Si no tienes los ideales, busca cualquier modelo alternativo que tengas
-        if (!modeloElegido) {
-            const fallback = modelosDisponibles.find(m => m.name.includes("flash") || m.name.includes("vision"));
-            if (fallback) {
-                modeloElegido = fallback.name.replace("models/", "");
-            } else {
-                // Si llegamos aquí, te mostrará en pantalla exactamente qué modelos tienes para saber qué pasa
-                const nombres = modelosDisponibles.map(m => m.name.replace("models/", "")).join(", ");
-                throw new Error(`Tu clave no tiene modelos visuales. Solo tienes: ${nombres}`);
-            }
+        // Orden de preferencia
+        const ordenPreferido = ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro"];
+        modelosCandidatos.sort((a, b) => {
+            const idxA = ordenPreferido.indexOf(a);
+            const idxB = ordenPreferido.indexOf(b);
+            return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
+        });
+
+        if (modelosCandidatos.length === 0) {
+            throw new Error(`Tu clave no tiene modelos compatibles disponibles.`);
         }
 
-        // 3. Ahora sí, hacemos la petición a un modelo que SABEMOS que existe
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modeloElegido}:generateContent?key=${apiKey.trim()}`;
+        // 3. Intentar con cada modelo de la lista hasta que uno funcione
+        let lastErrorMsg = "";
         
         const payload = {
           contents: [{ role: "user", parts: [
@@ -130,29 +125,39 @@
           ]}]
         };
 
-        const response = await fetch(url, {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
-        });
+        for (const modeloElegido of modelosCandidatos) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modeloElegido}:generateContent?key=${apiKey.trim()}`;
+            
+            try {
+                const response = await fetch(url, {
+                  method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+                });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            const apiErrorMsg = errorData?.error?.message || `Error en servidor: ${response.status}`;
-            throw new Error(`Google rechazó la imagen usando ${modeloElegido}: ${apiErrorMsg}`);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    const apiErrorMsg = errorData?.error?.message || `Error en servidor: ${response.status}`;
+                    lastErrorMsg = `Modelo ${modeloElegido} falló: ${apiErrorMsg}`;
+                    continue; // Pasa al siguiente modelo automáticamente sin detener la aplicación
+                }
+                
+                const result = await response.json();
+                let textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (textResponse) {
+                  textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+                  const parsedData = JSON.parse(textResponse);
+                  return parsedData.map(item => ({
+                    id: item.id || Math.random().toString(36).substr(2, 9),
+                    producto: item.producto || 'Desconocido',
+                    cantidad: item.cantidad || 0
+                  }));
+                }
+            } catch (err) {
+                lastErrorMsg = `Error con ${modeloElegido}: ${err.message}`;
+            }
         }
         
-        const result = await response.json();
-        let textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
-        
-        if (textResponse) {
-          textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-          const parsedData = JSON.parse(textResponse);
-          return parsedData.map(item => ({
-            id: item.id || Math.random().toString(36).substr(2, 9),
-            producto: item.producto || 'Desconocido',
-            cantidad: item.cantidad || 0
-          }));
-        }
-        return [];
+        throw new Error(`Todos los modelos fallaron. Último error: ${lastErrorMsg}`);
       };
 
       const handleCapture = async (event) => {
@@ -216,7 +221,7 @@
             <div className="max-w-3xl mx-auto flex justify-between items-center">
               <div>
                 <h1 className="text-xl font-bold flex items-center gap-2"><Check className="w-6 h-6" /> SmartInventory</h1>
-                <p className="text-blue-100 text-xs mt-1">Escaneo de marbetes (V3)</p>
+                <p className="text-blue-100 text-xs mt-1">Escaneo de marbetes (V4)</p>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => setShowSettings(true)} className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors">
