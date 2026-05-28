@@ -204,11 +204,20 @@
         if (docNumber) text += `📄 *Documento:* ${docNumber}\n`;
         if (counterName) text += `👤 *Contador:* ${counterName}\n`;
         text += `\n`;
+        
+        // Cabeceras de tabla para que Excel las reconozca
+        text += `Producto\tCantidad\n`;
+        
         inventory.forEach(item => {
-          text += `▪️ ${item.producto.trim() || 'Sin nombre'}: *${item.cantidad}*\n`;
+          // Limpiamos saltos de línea del nombre para que no rompa la fila de Excel
+          const nombreLimpio = item.producto.trim().replace(/\n/g, ' ') || 'Sin nombre';
+          // El \t es una tabulación que Excel lee como "siguiente columna"
+          text += `${nombreLimpio}\t${item.cantidad}\n`;
         });
+        
         const totalItems = inventory.reduce((sum, item) => sum + (Number(item.cantidad) || 0), 0);
-        text += `\n📊 *Total de artículos:* ${totalItems}`;
+        text += `\n📊 Total de artículos:\t${totalItems}`;
+        
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         setShowSendModal(false);
       };
