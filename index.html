@@ -205,18 +205,18 @@
         if (counterName) text += `👤 *Contador:* ${counterName}\n`;
         text += `\n`;
         
-        // Cabeceras de tabla para que Excel las reconozca
-        text += `Producto\tCantidad\n`;
+        // Cabecera con el nuevo formato
+        text += `SKU - Cantidad\n`;
         
         inventory.forEach(item => {
-          // Limpiamos saltos de línea del nombre para que no rompa la fila de Excel
+          // Limpiamos saltos de línea del nombre para mantener el formato limpio
           const nombreLimpio = item.producto.trim().replace(/\n/g, ' ') || 'Sin nombre';
-          // El \t es una tabulación que Excel lee como "siguiente columna"
-          text += `${nombreLimpio}\t${item.cantidad}\n`;
+          // Agregamos el guion separador con espacios
+          text += `${nombreLimpio}  -  ${item.cantidad}\n`;
         });
         
         const totalItems = inventory.reduce((sum, item) => sum + (Number(item.cantidad) || 0), 0);
-        text += `\n📊 Total de artículos:\t${totalItems}`;
+        text += `\n📊 Total de artículos: ${totalItems}`;
         
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         setShowSendModal(false);
